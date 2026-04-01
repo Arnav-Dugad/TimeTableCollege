@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic College Timetable</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0a0f1c;
+            --glass-bg: rgba(30, 41, 59, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-hover: rgba(30, 41, 59, 0.7);
+            
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            
+            --accent-primary: #6366f1;
+            --accent-primary-hover: #4f46e5;
+            
+            --type-lecture: #3b82f6;
+            --type-lab: #10b981;
+            --type-break: #f59e0b;
+            --type-tutorial: #8b5cf6;
+            --type-exam: #ef4444;
+
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --success: #10b981;
+            --warning: #f59e0b;
+            
+            --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animated Background */
+        .bg-blobs {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -1; overflow: hidden; background: var(--bg-base);
+        }
+        .blob {
+            position: absolute; border-radius: 50%; filter: blur(80px);
+            opacity: 0.4; animation: float 20s infinite ease-in-out alternate;
+        }
+        .blob-1 { top: -10%; left: -10%; width: 500px; height: 500px; background: rgba(99, 102, 241, 0.3); animation-delay: 0s; }
+        .blob-2 { bottom: -20%; right: -10%; width: 600px; height: 600px; background: rgba(16, 185, 129, 0.2); animation-delay: -5s; }
+        .blob-3 { top: 40%; left: 60%; width: 400px; height: 400px; background: rgba(139, 92, 246, 0.2); animation-delay: -10s; }
+
+        @keyframes float { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(50px, 50px) scale(1.1); } }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+        /* Compact Layout */
+        .app-container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            gap: 0.8rem;
+        }
+
+        /* Header */
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 1rem; padding: 1rem 1.5rem;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 16px; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            flex-shrink: 0;
+        }
+
+        .header-left h1 { font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #fff, #94a3b8); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
+        .header-left p { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.1rem; display: flex; align-items: center; gap: 0.4rem; }
+
+        .header-right { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+
+        .type-legend {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.4rem 0.6rem; border-radius: 10px;
+            background: rgba(0, 0, 0, 0.25); border: 1px solid var(--glass-border);
+            font-size: 0.72rem; color: var(--text-muted); font-weight: 600;
+        }
+        .legend-item { display: flex; align-items: center; gap: 0.3rem; }
+        .legend-dot { width: 9px; height: 9px; border-radius: 50%; }
+        .legend-dot.lecture { background: var(--type-lecture); }
+        .legend-dot.lab { background: var(--type-lab); }
+        .legend-dot.break { background: var(--type-break); }
+        
+        .toolbar { display: flex; gap: 0.3rem; padding-right: 0.8rem; border-right: 1px solid var(--glass-border); }
+
+        .clock-container {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 1rem; background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px; border: 1px solid var(--glass-border);
+            font-weight: 700; font-size: 0.95rem; color: #38bdf8;
+        }
+
+        .btn {
+            display: flex; align-items: center; gap: 0.4rem;
+            padding: 0.5rem 1rem; border: none; border-radius: 10px;
+            font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: var(--transition); color: white;
+        }
+        .btn-primary { background: var(--accent-primary); box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3); }
+        .btn-primary:hover { background: var(--accent-primary-hover); transform: translateY(-1px); }
+        .btn-secondary { background: rgba(255,255,255,0.08); border: 1px solid var(--glass-border); backdrop-filter: blur(10px); }
+        .btn-secondary:hover { background: rgba(255,255,255,0.15); transform: translateY(-1px); }
+
+        .btn-icon {
+            padding: 0.4rem; border-radius: 8px; background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border); color: var(--text-muted);
+            cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center;
+        }
+        .btn-icon:hover { background: rgba(255, 255, 255, 0.15); color: white; transform: translateY(-1px); }
+
+        .insights-panel {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(130px, 1fr));
+            gap: 0.6rem;
+            flex-shrink: 0;
+            margin-top: 0.1rem;
+        }
+        .insight-card {
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.55));
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 0.7rem 0.8rem;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+            animation: cardRise 0.5s ease both;
+        }
+        .insight-title { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+        .insight-value { margin-top: 0.25rem; font-size: 1rem; font-weight: 800; color: #e2e8f0; }
+        .insight-sub { margin-top: 0.15rem; font-size: 0.72rem; color: #94a3b8; }
+
+        @keyframes cardRise {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- TABLE / CALENDAR VIEW --- */
+        .table-container {
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 16px; backdrop-filter: blur(16px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+            display: flex; flex-direction: column; overflow-y: auto; overflow-x: auto;
+            flex: 1; /* Take remaining space */
+            position: relative;
+            background-image: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+        }
+
+        .table-header { display: flex; border-bottom: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); }
+        .time-col-header { width: 60px; flex-shrink: 0; border-right: 1px solid var(--glass-border); }
+
+        .day-header {
+            flex: 1; min-width: 130px; padding: 0.6rem; text-align: center;
+            border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; align-items: center; gap: 0.1rem;
+        }
+        .day-header:last-child { border-right: none; }
+        .day-name { font-weight: 700; font-size: 0.95rem; }
+        .day-date { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
+        .day-header.today { background: rgba(99, 102, 241, 0.2); border-bottom: 2px solid #818cf8; }
+        .day-header.today .day-name { color: #818cf8; }
+
+        .table-body { display: flex; position: relative; }
+
+        .time-axis { width: 60px; flex-shrink: 0; position: relative; border-right: 1px solid var(--glass-border); background: rgba(0,0,0,0.15); }
+        .time-label { position: absolute; width: 100%; text-align: center; font-size: 0.65rem; color: var(--text-muted); font-weight: 600; transform: translateY(-50%); }
+
+        .grid-area { display: flex; flex: 1; position: relative; }
+        .grid-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.04); pointer-events: none; z-index: 1; }
+        .grid-line.half-hour { background: transparent; border-top: 1px dashed rgba(255,255,255,0.03); }
+
+        .day-col { flex: 1; min-width: 130px; position: relative; border-right: 1px solid rgba(255,255,255,0.03); }
+        .day-col:last-child { border-right: none; }
+        .day-col.today { background: rgba(99, 102, 241, 0.03); }
+
+        /* Current Time Line */
+        .current-time-line {
+            position: absolute; left: 0; right: 0; height: 2px;
+            background: #ef4444; z-index: 40; pointer-events: none;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+        }
+        .current-time-line::before {
+            content: ''; position: absolute; left: -4px; top: -4px;
+            width: 10px; height: 10px; border-radius: 50%; background: #ef4444;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+        }
+
+        .event-banner {
+            margin: 5px; padding: 0.5rem; border-radius: 8px; text-align: center;
+            font-weight: 600; font-size: 0.75rem; z-index: 10; position: relative;
+            background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #fcd34d;
+            display: flex; flex-direction: column; gap: 0.2rem;
+        }
+        .event-banner.holiday { background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: #6ee7b7; }
+        .event-banner.exchange { background: rgba(139, 92, 246, 0.15); border-color: rgba(139, 92, 246, 0.3); color: #c4b5fd; }
+        
+        .delete-event-btn { position: absolute; top: 2px; right: 5px; background: none; border: none; color: inherit; opacity: 0.5; cursor: pointer; font-size: 0.8rem; }
+
+        /* Class Blocks - Compacted */
+        .class-block {
+            position: absolute; left: 2%; width: 96%; border-radius: 8px; padding: 0.4rem 0.6rem;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px); z-index: 5; overflow: hidden;
+            display: flex; flex-direction: column; transition: var(--transition);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2); gap: 0.08rem;
+        }
+        .class-block:hover { transform: translateY(-1px) scale(1.01); z-index: 20; box-shadow: 0 10px 22px rgba(0,0,0,0.42); background: var(--glass-hover); }
+
+        .class-block::before { content: ''; position: absolute; left: 0; top: 0; height: 100%; width: 3px; }
+        .type-lecture::before { background-color: var(--type-lecture); }
+        .type-lab::before { background-color: var(--type-lab); }
+        .type-break::before { background-color: var(--type-break); }
+        .type-tutorial::before { background-color: var(--type-tutorial); }
+        .type-exam::before { background-color: var(--type-exam); }
+
+        .class-block.type-lecture {
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.08));
+            border-color: rgba(59, 130, 246, 0.35);
+        }
+        .class-block.type-lab {
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.08));
+            border-color: rgba(16, 185, 129, 0.35);
+        }
+        .class-block.type-break {
+            background: linear-gradient(180deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.08));
+            border-color: rgba(245, 158, 11, 0.45);
+        }
+
+        .class-block.compact {
+            padding: 0.25rem 0.45rem;
+            gap: 0.05rem;
+        }
+        .class-block.compact .block-prof {
+            display: none;
+        }
+        .class-block.compact .block-subject {
+            font-size: 0.78rem;
+        }
+
+        .class-block.active-now { border-color: rgba(16, 185, 129, 0.6); background: rgba(16, 185, 129, 0.15); z-index: 10; box-shadow: 0 0 15px rgba(16, 185, 129, 0.2); }
+        .class-block.next-class { border-color: rgba(245, 158, 11, 0.6); background: rgba(245, 158, 11, 0.15); }
+
+        .status-badge { align-self: flex-start; font-size: 0.55rem; font-weight: 800; padding: 0.1rem 0.4rem; border-radius: 4px; margin-bottom: 0.1rem; display: none; }
+        .class-block.active-now .status-badge.live { display: inline-block; background: var(--success); color: white; }
+        .class-block.next-class .status-badge.next { display: inline-block; background: var(--warning); color: #fff; }
+
+        .block-time { font-size: 0.66rem; color: var(--text-muted); font-weight: 650; padding-right: 1.4rem; }
+        .block-subject {
+            font-size: 0.82rem;
+            font-weight: 700;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-right: 0.2rem;
+        }
+        .block-prof { font-size: 0.64rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .block-footer { position: absolute; right: 6px; bottom: 4px; display: flex; justify-content: flex-end; align-items: flex-end; }
+        .block-actions { display: flex; gap: 0.2rem; opacity: 0; transition: 0.2s; pointer-events: none; }
+        .class-block:hover .block-actions { opacity: 1; pointer-events: auto; }
+        
+        .action-icon { background: rgba(0,0,0,0.4); border: none; border-radius: 4px; padding: 0.15rem; color: white; cursor: pointer; display: flex; }
+        .action-icon:hover { background: rgba(255,255,255,0.2); }
+        .action-icon.delete:hover { background: var(--danger); }
+
+        /* Modals */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 2000; opacity: 0; pointer-events: none; transition: var(--transition); }
+        .modal-overlay.active { opacity: 1; pointer-events: all; }
+        .modal { background: #1e293b; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; width: 100%; max-width: 450px; padding: 2rem; transform: scale(0.95) translateY(10px); transition: var(--transition); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8); }
+        .modal-overlay.active .modal { transform: scale(1) translateY(0); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; }
+        .modal-header h2 { font-size: 1.3rem; font-weight: 800; }
+        
+        .form-group { margin-bottom: 1rem; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+        label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.3rem; }
+        input, select { width: 100%; padding: 0.6rem 0.8rem; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; font-size: 0.9rem; outline: none; transition: 0.2s; }
+        input:focus, select:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2); }
+        select option { background: #1e293b; color: white; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem; }
+
+        #toast-container { position: fixed; bottom: 2rem; right: 2rem; display: flex; flex-direction: column; gap: 0.5rem; z-index: 3000; }
+        .toast { background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(10px); border-left: 4px solid var(--accent-primary); color: white; padding: 0.8rem 1.2rem; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 0.6rem; transform: translateX(120%); font-size: 0.85rem; animation: slideInRight 0.3s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .toast.success { border-left-color: var(--success); }
+        .toast.warning { border-left-color: var(--warning); }
+        .toast.closing { animation: slideOutRight 0.3s forwards ease-in; }
+
+        @keyframes slideInRight { to { transform: translateX(0); } }
+        @keyframes slideOutRight { to { transform: translateX(120%); opacity: 0; } }
+
+        /* PRINT STYLES - Clean export */
+        @media print {
+            .bg-blobs, header, .insights-panel, .btn, .btn-icon, .modal-overlay, #toast-container, .delete-event-btn, .block-actions, .status-badge, .current-time-line { display: none !important; }
+            body { background: white !important; color: black !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow: visible; height: auto; }
+            .app-container { padding: 0; height: auto; overflow: visible; display: block; }
+            .table-container { box-shadow: none; border: 1px solid #ddd; border-radius: 0; overflow: visible; height: auto; display: block; }
+            .table-header { position: static; background: #f8fafc !important; border-bottom: 2px solid #000; color: black; }
+            .day-header { border-right: 1px solid #ddd; color: black; }
+            .day-header .day-name { color: black !important; }
+            .day-header .day-date { color: #555; }
+            .time-axis { background: #f8fafc !important; border-right: 2px solid #000; }
+            .time-label { color: black !important; }
+            .grid-line { background: #eee !important; }
+            .day-col { border-right: 1px solid #eee; }
+            .class-block { background: white !important; border: 1px solid #000 !important; color: black !important; box-shadow: none !important; }
+            .block-subject { color: black !important; }
+            .block-time, .block-prof { color: #333 !important; }
+            /* Force borders to print */
+            .type-lecture::before { background-color: #3b82f6 !important; }
+            .type-lab::before { background-color: #10b981 !important; }
+            .type-break::before { background-color: #f59e0b !important; }
+            .type-tutorial::before { background-color: #8b5cf6 !important; }
+        }
+
+        @media (max-width: 768px) {
+            header { flex-direction: column; gap: 1rem; align-items: stretch; text-align: center; }
+            .header-right { justify-content: center; }
+            .toolbar { border-right: none; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem; padding-right: 0; margin-bottom: 0.5rem; justify-content: center; }
+            .insights-panel { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+            .app-container { padding: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="app-container">
+        <header>
+            <div class="header-left">
+                <h1>Timetable Grid</h1>
+                <p><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Weekly Table View & Event Tracker</p>
+            </div>
+            <div class="header-right">
+                <div class="toolbar">
+                    <button class="btn-icon" onclick="zoomIn()" title="Zoom In (Make taller)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg></button>
+                    <button class="btn-icon" onclick="zoomOut()" title="Zoom Out (Make shorter)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg></button>
+                    <button class="btn-icon" onclick="window.print()" title="Print / PDF"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg></button>
+                </div>
+                <div class="type-legend" aria-label="Class color legend">
+                    <span class="legend-item"><span class="legend-dot lecture"></span>Lecture</span>
+                    <span class="legend-item"><span class="legend-dot lab"></span>Lab</span>
+                    <span class="legend-item"><span class="legend-dot break"></span>Break</span>
+                </div>
+                <div class="clock-container">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <span id="clock">00:00 AM</span>
+                </div>
+                <button class="btn btn-secondary" onclick="openEventModal()">Add Event</button>
+                <button class="btn btn-secondary" onclick="openBreakModal()">Add Break</button>
+                <button class="btn btn-secondary" onclick="exportData()">Export</button>
+                <button class="btn btn-secondary" onclick="importDataClick()">Import</button>
+                <button class="btn btn-primary" onclick="openClassModal()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Add Class
+                </button>
+            </div>
+        </header>
+
+        <!-- TABLE VIEW CONTAINER -->
+        <div class="table-container" id="timetableWrapper">
+            <!-- Headers and grid injected by JS -->
+        </div>
+
+        <section class="insights-panel" id="insightsPanel" aria-label="Weekly insights">
+            <article class="insight-card"><div class="insight-title">Total Classes</div><div class="insight-value" id="statTotal">0</div><div class="insight-sub">This week</div></article>
+            <article class="insight-card"><div class="insight-title">Lecture Hours</div><div class="insight-value" id="statLectureHours">0h</div><div class="insight-sub">Weekly total</div></article>
+            <article class="insight-card"><div class="insight-title">Lab Hours</div><div class="insight-value" id="statLabHours">0h</div><div class="insight-sub">Weekly total</div></article>
+            <article class="insight-card"><div class="insight-title">Break Minutes</div><div class="insight-value" id="statBreakMins">0m</div><div class="insight-sub">Planned breaks</div></article>
+            <article class="insight-card"><div class="insight-title">Busiest Day</div><div class="insight-value" id="statBusiestDay">-</div><div class="insight-sub" id="statBusiestMeta">No classes yet</div></article>
+            <article class="insight-card"><div class="insight-title">Next Class</div><div class="insight-value" id="statNext">No upcoming</div><div class="insight-sub" id="statNextMeta">Add more classes to see countdown</div></article>
+        </section>
+    </div>
+
+    <input type="file" id="importFile" accept="application/json" style="display: none;">
+
+    <!-- Modals -->
+    <!-- 1. Add Class Modal -->
+    <div class="modal-overlay" id="classModalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="classModalTitle">Add New Class</h2>
+                <button class="btn-icon" onclick="closeModal('classModalOverlay')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+            </div>
+            <form id="classForm" onsubmit="handleClassSubmit(event)">
+                <input type="hidden" id="classId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Day of Week</label>
+                        <select id="classDay" required>
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Class Type</label>
+                        <select id="classType" required>
+                            <option value="lecture">Lecture</option>
+                            <option value="lab">Lab</option>
+                            <option value="break">Break</option>
+                            <option value="tutorial">Tutorial</option>
+                            <option value="exam">Exam</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group"><label>Subject Name</label><input type="text" id="classSubject" required autocomplete="off"></div>
+                <div class="form-group"><label>Professor (Optional)</label><input type="text" id="classProf" autocomplete="off"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>Start Time</label><input type="time" id="classStart" required></div>
+                    <div class="form-group"><label>End Time</label><input type="time" id="classEnd" required><small id="timeHint" style="color: var(--text-muted); font-size: 0.72rem; display: block; margin-top: 0.3rem;">Lecture = 1 hr, Lab = 2.5 hrs (auto)</small></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('classModalOverlay')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Class</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. Add Event/Holiday Modal -->
+    <div class="modal-overlay" id="eventModalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Add Special Event</h2>
+                <button class="btn-icon" onclick="closeModal('eventModalOverlay')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+            </div>
+            <form id="eventForm" onsubmit="handleEventSubmit(event)">
+                <div class="form-group"><label>Date</label><input type="date" id="eventDate" required></div>
+                <div class="form-group">
+                    <label>Event Type</label>
+                    <select id="eventType" required onchange="toggleExchangeSelect()">
+                        <option value="holiday">Holiday (No Classes)</option>
+                        <option value="halfday">Half Day / Event (No Classes)</option>
+                        <option value="exchange">Timetable Day Exchange</option>
+                    </select>
+                </div>
+                <div class="form-group" id="exchangeDayGroup" style="display: none;">
+                    <label>Follow Schedule Of:</label>
+                    <select id="eventExchangeDay">
+                        <option value="Monday">Monday</option><option value="Tuesday">Tuesday</option><option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option><option value="Friday">Friday</option><option value="Saturday">Saturday</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Event Title / Note</label><input type="text" id="eventTitle" placeholder="e.g. Spring Fest" required autocomplete="off"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('eventModalOverlay')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Event</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        // --- DATA STATE ---
+        const CLASS_KEY = 'timetable_table_classes';
+        const EVENT_KEY = 'timetable_table_events';
+        const ALL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const CLASS_DURATION_MINUTES = { lecture: 60, lab: 150 };
+        
+        // UI State
+        let hourHeight = 58; // Slightly taller rows while still fitting typical weekly view
+
+        let timetableData = {};
+        let eventsData = {};
+
+        const defaultClasses = {
+            Monday: [
+                { id: '1', subject: 'Data Structures', prof: 'Dr. Turing', start: '09:00', end: '10:30', type: 'lecture' },
+                { id: '2', subject: 'Web Dev Lab', prof: 'Prof. Lee', start: '11:00', end: '13:00', type: 'lab' }
+            ],
+            Tuesday: [
+                { id: '3', subject: 'Computer Networks', prof: 'Dr. Cerf', start: '10:00', end: '11:00', type: 'lecture' },
+                { id: '4', subject: 'Mathematics III', prof: 'Dr. Euler', start: '14:00', end: '15:00', type: 'tutorial' }
+            ],
+            Wednesday: [{ id: '5', subject: 'Operating Systems', prof: 'Dr. Torvalds', start: '08:30', end: '10:00', type: 'lecture' }],
+            Thursday: [], Friday: [], Saturday: []
+        };
+
+        function sanitizeTimetableData(rawData) {
+            const clean = {};
+            ALL_DAYS.forEach(day => {
+                const dayList = Array.isArray(rawData?.[day]) ? rawData[day] : [];
+                clean[day] = dayList.map(cls => ({
+                    id: cls.id || generateId(),
+                    subject: (cls.subject || '').toString(),
+                    prof: (cls.prof || '').toString(),
+                    start: (cls.start || '09:00').toString(),
+                    end: (cls.end || '10:00').toString(),
+                    type: (cls.type || 'lecture').toString()
+                }));
+            });
+            return clean;
+        }
+
+        function initData() {
+            const storedC = localStorage.getItem(CLASS_KEY);
+            const storedE = localStorage.getItem(EVENT_KEY);
+
+            try {
+                timetableData = storedC ? JSON.parse(storedC) : JSON.parse(JSON.stringify(defaultClasses));
+            } catch (err) {
+                timetableData = JSON.parse(JSON.stringify(defaultClasses));
+                showToast('Stored class data was corrupted and has been reset.', 'warning');
+            }
+            timetableData = sanitizeTimetableData(timetableData);
+
+            try {
+                eventsData = storedE ? JSON.parse(storedE) : {};
+            } catch (err) {
+                eventsData = {};
+                showToast('Stored event data was corrupted and has been reset.', 'warning');
+            }
+
+            // Keep saved data backward-compatible with any newly introduced weekday keys.
+            ALL_DAYS.forEach(day => {
+                if (!Array.isArray(timetableData[day])) timetableData[day] = [];
+            });
+        }
+
+        function saveData() {
+            localStorage.setItem(CLASS_KEY, JSON.stringify(timetableData));
+            localStorage.setItem(EVENT_KEY, JSON.stringify(eventsData));
+        }
+
+        // --- UTILS ---
+        function generateId() { return Math.random().toString(36).substr(2, 9); }
+        function formatTime12(time24) {
+            if (!time24 || !time24.includes(':')) return '--:--';
+            const [h, m] = time24.split(':');
+            let hr = parseInt(h);
+            const ampm = hr >= 12 ? 'PM' : 'AM';
+            hr = hr % 12 || 12;
+            return `${hr}:${m} ${ampm}`;
+        }
+        function getMins(time24) {
+            const [h, m] = time24.split(':');
+            return parseInt(h) * 60 + parseInt(m);
+        }
+        function formatDateYYYYMMDD(date) {
+            const d = new Date(date);
+            const m = ('0' + (d.getMonth() + 1)).slice(-2);
+            const day = ('0' + d.getDate()).slice(-2);
+            return `${d.getFullYear()}-${m}-${day}`;
+        }
+        function addMinutesToTime(time24, minutesToAdd) {
+            const base = getMins(time24);
+            const mins = Math.max(0, Math.min((24 * 60) - 1, base + minutesToAdd));
+            const hh = String(Math.floor(mins / 60)).padStart(2, '0');
+            const mm = String(mins % 60).padStart(2, '0');
+            return `${hh}:${mm}`;
+        }
+
+        function autoCalculateEndTime() {
+            const type = document.getElementById('classType').value;
+            const start = document.getElementById('classStart').value;
+            if (!start || !CLASS_DURATION_MINUTES[type]) return;
+            document.getElementById('classEnd').value = addMinutesToTime(start, CLASS_DURATION_MINUTES[type]);
+        }
+
+        function updateEndTimeAutoState() {
+            const type = document.getElementById('classType').value;
+            const endInput = document.getElementById('classEnd');
+            const hint = document.getElementById('timeHint');
+            const isAuto = Boolean(CLASS_DURATION_MINUTES[type]);
+
+            endInput.readOnly = isAuto;
+            endInput.style.opacity = isAuto ? '0.85' : '1';
+            if (isAuto) {
+                hint.innerText = type === 'lecture'
+                    ? 'Lecture end-time is auto-set to +1 hour.'
+                    : 'Lab end-time is auto-set to +2 hours 30 minutes.';
+                autoCalculateEndTime();
+            } else if (type === 'break') {
+                hint.innerText = 'Break end-time is editable. Example: 10:30 to 10:45.';
+            } else {
+                hint.innerText = 'Set end-time manually for this class type.';
+            }
+        }
+
+        function formatDuration(mins) {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            if (!h) return `${m}m`;
+            if (!m) return `${h}h`;
+            return `${h}h ${m}m`;
+        }
+
+        function getEffectiveClassesForDay(dayName, dateYMD) {
+            const dayEvent = eventsData[dateYMD];
+            let classes = timetableData[dayName] || [];
+
+            if (!dayEvent) return classes;
+            if (dayEvent.type === 'holiday' || dayEvent.type === 'halfday') return [];
+            if (dayEvent.type === 'exchange') return timetableData[dayEvent.targetDay] || [];
+            return classes;
+        }
+
+        function renderInsights() {
+            const dates = getWeekDates();
+            const todayStr = formatDateYYYYMMDD(new Date());
+            const now = new Date();
+            const nowMins = now.getHours() * 60 + now.getMinutes();
+
+            let totalClasses = 0;
+            let lectureMins = 0;
+            let labMins = 0;
+            let breakMins = 0;
+            const byDayCount = {};
+            let nextCandidate = null;
+
+            ALL_DAYS.forEach((dayName, idx) => {
+                const dateYMD = formatDateYYYYMMDD(dates[idx]);
+                const classes = getEffectiveClassesForDay(dayName, dateYMD);
+                byDayCount[dayName] = classes.length;
+
+                classes.forEach(cls => {
+                    totalClasses += 1;
+                    const duration = Math.max(0, getMins(cls.end) - getMins(cls.start));
+                    if (cls.type === 'lecture') lectureMins += duration;
+                    if (cls.type === 'lab') labMins += duration;
+                    if (cls.type === 'break') breakMins += duration;
+
+                    if (dateYMD === todayStr && getMins(cls.start) > nowMins) {
+                        if (!nextCandidate || getMins(cls.start) < getMins(nextCandidate.start)) {
+                            nextCandidate = cls;
+                        }
+                    }
+                });
+            });
+
+            let busiestDay = '-';
+            let busiestCount = 0;
+            Object.keys(byDayCount).forEach(day => {
+                if (byDayCount[day] > busiestCount) {
+                    busiestCount = byDayCount[day];
+                    busiestDay = day;
+                }
+            });
+
+            document.getElementById('statTotal').innerText = String(totalClasses);
+            document.getElementById('statLectureHours').innerText = formatDuration(lectureMins);
+            document.getElementById('statLabHours').innerText = formatDuration(labMins);
+            document.getElementById('statBreakMins').innerText = `${breakMins}m`;
+            document.getElementById('statBusiestDay').innerText = busiestDay;
+            document.getElementById('statBusiestMeta').innerText = busiestCount ? `${busiestCount} classes` : 'No classes yet';
+
+            if (nextCandidate) {
+                const minsAway = Math.max(0, getMins(nextCandidate.start) - nowMins);
+                document.getElementById('statNext').innerText = nextCandidate.subject;
+                document.getElementById('statNextMeta').innerText = `Starts in ${minsAway} min at ${formatTime12(nextCandidate.start)}`;
+            } else {
+                document.getElementById('statNext').innerText = 'No upcoming';
+                document.getElementById('statNextMeta').innerText = 'All done for today';
+            }
+        }
+
+        function openBreakModal() {
+            const todayDay = ALL_DAYS[(new Date().getDay() + 6) % 7] || 'Monday';
+            openClassModal(null, todayDay);
+            document.getElementById('classType').value = 'break';
+            document.getElementById('classSubject').value = 'Break';
+            document.getElementById('classProf').value = '';
+            updateEndTimeAutoState();
+        }
+
+        function exportData() {
+            const payload = {
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                timetableData,
+                eventsData
+            };
+
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const dateTag = formatDateYYYYMMDD(new Date());
+            a.href = url;
+            a.download = `timetable-backup-${dateTag}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Backup exported successfully.');
+        }
+
+        function importDataClick() {
+            document.getElementById('importFile').click();
+        }
+
+        function handleImportFile(e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (ev) {
+                try {
+                    const parsed = JSON.parse(ev.target.result);
+                    if (!parsed.timetableData || !parsed.eventsData) throw new Error('Invalid backup file');
+
+                    timetableData = sanitizeTimetableData(parsed.timetableData);
+                    eventsData = parsed.eventsData;
+
+                    saveData();
+                    renderTable();
+                    showToast('Backup imported successfully.');
+                } catch (err) {
+                    showToast('Import failed. Please use a valid backup JSON.', 'warning');
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        }
+
+        function getWeekDates() {
+            const curr = new Date();
+            const mondayOffset = (curr.getDay() + 6) % 7;
+            const first = curr.getDate() - mondayOffset; // Monday of current week
+            const dates = [];
+            for(let i = 0; i < ALL_DAYS.length; i++) {
+                const d = new Date(curr.getTime());
+                d.setDate(first + i);
+                dates.push(d);
+            }
+            return dates;
+        }
+
+        // --- UI CONTROLS ---
+        function zoomIn() { if(hourHeight < 120) { hourHeight += 10; renderTable(); } }
+        function zoomOut() { if(hourHeight > 40) { hourHeight -= 10; renderTable(); } }
+
+        // --- RENDER TABLE GRID ---
+        function renderTable() {
+            const wrapper = document.getElementById('timetableWrapper');
+            const dates = getWeekDates();
+            const activeDays = ALL_DAYS;
+            const todayStr = formatDateYYYYMMDD(new Date());
+
+            // Determine Grid Boundaries (Min 8 AM, Max 6 PM, expand if needed)
+            let minMin = 8 * 60; 
+            let maxMin = 18 * 60; 
+            
+            ALL_DAYS.forEach(day => {
+                if(timetableData[day]) {
+                    timetableData[day].forEach(c => {
+                        const start = getMins(c.start);
+                        const end = getMins(c.end);
+                        if(start < minMin) minMin = Math.floor(start / 60) * 60;
+                        if(end > maxMin) maxMin = Math.ceil(end / 60) * 60;
+                    });
+                }
+            });
+
+            const totalHours = (maxMin - minMin) / 60;
+            const totalHeight = totalHours * hourHeight;
+
+            let headerHtml = `<div class="table-header"><div class="time-col-header"></div>`;
+            let columnsHtml = '';
+            
+            const now = new Date();
+            const nowMins = now.getHours() * 60 + now.getMinutes();
+            let nextClassGlobal = null;
+
+            // Process Each Active Day
+            activeDays.forEach((dayName, idx) => {
+                const dateObj = dates[idx];
+                const dateYMD = formatDateYYYYMMDD(dateObj);
+                const isToday = dateYMD === todayStr;
+                
+                headerHtml += `
+                    <div class="day-header ${isToday ? 'today' : ''}">
+                        <div class="day-name">${dayName}</div>
+                        <div class="day-date">${dateObj.toLocaleDateString('en-US', {month:'short', day:'numeric'})}</div>
+                    </div>
+                `;
+
+                columnsHtml += `<div class="day-col ${isToday ? 'today' : ''}">`;
+                
+                const dayEvent = eventsData[dateYMD];
+                let classesToRender = timetableData[dayName] || [];
+
+                if(dayEvent) {
+                    columnsHtml += `
+                        <div class="event-banner ${dayEvent.type}">
+                            <button class="delete-event-btn" onclick="deleteEvent('${dateYMD}')" title="Delete Event">✕</button>
+                            <strong>${dayEvent.type === 'exchange' ? '🔄 Change' : '🎉 Event'}</strong>
+                            <span>${dayEvent.title}</span>
+                        </div>
+                    `;
+                    if(dayEvent.type === 'holiday' || dayEvent.type === 'halfday') {
+                        classesToRender = []; 
+                    } else if(dayEvent.type === 'exchange') {
+                        classesToRender = timetableData[dayEvent.targetDay] || [];
+                    }
+                }
+
+                classesToRender.sort((a,b) => getMins(a.start) - getMins(b.start));
+
+                classesToRender.forEach(cls => {
+                    const cStart = getMins(cls.start);
+                    const cEnd = getMins(cls.end);
+                    const durationMins = cEnd - cStart;
+                    
+                    const topPct = ((cStart - minMin) / (maxMin - minMin)) * 100;
+                    const heightPct = ((cEnd - cStart) / (maxMin - minMin)) * 100;
+
+                    const isActive = isToday && (nowMins >= cStart && nowMins < cEnd);
+                    const isUpcoming = isToday && (cStart > nowMins);
+                    
+                    if (isUpcoming && (!nextClassGlobal || cStart < nextClassGlobal.startMins)) {
+                        nextClassGlobal = { id: cls.id, startMins: cStart };
+                    }
+
+                    columnsHtml += `
+                        <div class="class-block type-${cls.type} ${durationMins <= 45 ? 'compact' : ''} ${isActive ? 'active-now' : ''}" 
+                             id="block-${cls.id}" style="top: ${topPct}%; height: ${heightPct}%;">
+                            <span class="status-badge live">LIVE</span>
+                            <span class="status-badge next">NEXT</span>
+                            <div class="block-time">${formatTime12(cls.start)} - ${formatTime12(cls.end)}</div>
+                            <div class="block-subject" title="${cls.subject}">${cls.subject}</div>
+                            ${cls.type !== 'break' && cls.prof ? `<div class="block-prof">👤 ${cls.prof}</div>` : ''}
+                            <div class="block-footer">
+                                <div class="block-actions">
+                                    <button class="action-icon" onclick="openClassModal('${cls.id}', '${dayEvent && dayEvent.type==='exchange'? dayEvent.targetDay : dayName}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                                    <button class="action-icon delete" onclick="deleteClass('${cls.id}', '${dayEvent && dayEvent.type==='exchange'? dayEvent.targetDay : dayName}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                columnsHtml += `</div>`;
+            });
+            headerHtml += `</div>`;
+
+            let axisHtml = `<div class="time-axis">`;
+            let gridHtml = `<div class="grid-area">`;
+            
+            for(let hr = 0; hr <= totalHours; hr++) {
+                const currentMin = minMin + (hr * 60);
+                const timeStr = formatTime12(Math.floor(currentMin/60) + ':00');
+                const topPct = (hr / totalHours) * 100;
+                
+                axisHtml += `<div class="time-label" style="top: ${topPct}%;">${timeStr}</div>`;
+                gridHtml += `<div class="grid-line" style="top: ${topPct}%;"></div>`;
+                
+                if (hr < totalHours) {
+                    gridHtml += `<div class="grid-line half-hour" style="top: ${topPct + (50/totalHours)}%;"></div>`;
+                }
+            }
+            
+            // Add Current Time Line
+            if (nowMins >= minMin && nowMins <= maxMin && activeDays.includes(ALL_DAYS[(now.getDay() + 6) % 7])) { // check if today is in visible days
+                const nowPct = ((nowMins - minMin) / (maxMin - minMin)) * 100;
+                gridHtml += `<div class="current-time-line" style="top: ${nowPct}%;"></div>`;
+            }
+
+            axisHtml += `</div>`;
+            gridHtml += columnsHtml + `</div>`;
+
+            wrapper.innerHTML = headerHtml + `<div class="table-body" style="height: ${totalHeight}px;">` + axisHtml + gridHtml + `</div>`;
+
+            if(nextClassGlobal) {
+                const nextEl = document.getElementById(`block-${nextClassGlobal.id}`);
+                if(nextEl) nextEl.classList.add('next-class');
+            }
+
+            renderInsights();
+        }
+
+        // --- INTERACTION LOGIC ---
+        function openClassModal(classId = null, prefillDay = 'Monday') {
+            if (classId) {
+                document.getElementById('classModalTitle').innerText = "Edit Class";
+                const cls = timetableData[prefillDay].find(c => c.id === classId);
+                if(cls) {
+                    document.getElementById('classId').value = cls.id;
+                    document.getElementById('classDay').value = prefillDay;
+                    document.getElementById('classSubject').value = cls.subject;
+                    document.getElementById('classProf').value = cls.prof || '';
+                    document.getElementById('classStart').value = cls.start;
+                    document.getElementById('classEnd').value = cls.end;
+                    document.getElementById('classType').value = cls.type;
+                }
+            } else {
+                document.getElementById('classModalTitle').innerText = "Add New Class";
+                document.getElementById('classForm').reset();
+                document.getElementById('classId').value = '';
+                document.getElementById('classDay').value = prefillDay;
+                document.getElementById('classType').value = 'lecture';
+            }
+            updateEndTimeAutoState();
+            document.getElementById('classModalOverlay').classList.add('active');
+        }
+
+        function handleClassSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('classId').value;
+            const day = document.getElementById('classDay').value;
+            const type = document.getElementById('classType').value;
+            const start = document.getElementById('classStart').value;
+            const end = document.getElementById('classEnd').value;
+
+            if (!start || !end || getMins(end) <= getMins(start)) {
+                showToast('End time must be later than start time.', 'warning');
+                return;
+            }
+            
+            const newClass = {
+                id: id || generateId(),
+                subject: document.getElementById('classSubject').value.trim(),
+                prof: document.getElementById('classProf').value.trim(),
+                start: start,
+                end: end,
+                type: type
+            };
+
+            if (!newClass.subject) {
+                showToast('Subject cannot be empty.', 'warning');
+                return;
+            }
+
+            const dayClasses = (timetableData[day] || []).filter(c => c.id !== id);
+            const isOverlap = dayClasses.some(c => getMins(newClass.start) < getMins(c.end) && getMins(newClass.end) > getMins(c.start));
+            if (isOverlap) {
+                showToast('This class overlaps with another class on the same day.', 'warning');
+                return;
+            }
+
+            if (id) ALL_DAYS.forEach(d => timetableData[d] = timetableData[d].filter(c => c.id !== id));
+            
+            if(!timetableData[day]) timetableData[day] = [];
+            timetableData[day].push(newClass);
+            
+            saveData(); renderTable(); closeModal('classModalOverlay'); showToast(id ? 'Class Updated' : 'Class Added');
+        }
+
+        function deleteClass(id, day) {
+            if(confirm("Delete this class permanently?")) {
+                timetableData[day] = timetableData[day].filter(c => c.id !== id);
+                saveData(); renderTable(); showToast('Class Deleted', 'warning');
+            }
+        }
+
+        function toggleExchangeSelect() {
+            const type = document.getElementById('eventType').value;
+            document.getElementById('exchangeDayGroup').style.display = type === 'exchange' ? 'block' : 'none';
+        }
+
+        function openEventModal() {
+            document.getElementById('eventForm').reset();
+            document.getElementById('eventDate').value = formatDateYYYYMMDD(new Date());
+            toggleExchangeSelect();
+            document.getElementById('eventModalOverlay').classList.add('active');
+        }
+
+        function handleEventSubmit(e) {
+            e.preventDefault();
+            const date = document.getElementById('eventDate').value;
+            const type = document.getElementById('eventType').value;
+            
+            eventsData[date] = {
+                type: type,
+                title: document.getElementById('eventTitle').value,
+                targetDay: type === 'exchange' ? document.getElementById('eventExchangeDay').value : null
+            };
+            
+            saveData(); renderTable(); closeModal('eventModalOverlay'); showToast('Special Event Added!');
+        }
+
+        function deleteEvent(dateStr) {
+            if(confirm("Remove this special event?")) {
+                delete eventsData[dateStr];
+                saveData(); renderTable(); showToast('Event Removed');
+            }
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        function showToast(msg, type='success') {
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            t.innerHTML = `<span>${msg}</span>`;
+            c.appendChild(t);
+            setTimeout(() => {
+                t.classList.add('closing');
+                t.addEventListener('animationend', () => t.remove());
+            }, 3000);
+        }
+
+        function tick() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', hour12:true});
+            if(now.getSeconds() === 0) renderTable();
+            if(now.getSeconds() % 15 === 0) renderInsights();
+        }
+
+        document.getElementById('classType').addEventListener('change', updateEndTimeAutoState);
+        document.getElementById('classStart').addEventListener('change', autoCalculateEndTime);
+        document.getElementById('importFile').addEventListener('change', handleImportFile);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal('classModalOverlay');
+                closeModal('eventModalOverlay');
+            }
+        });
+
+        // Init
+        initData();
+        renderTable();
+        setInterval(tick, 1000);
+        tick();
+
+    </script>
+</body>
+</html>
